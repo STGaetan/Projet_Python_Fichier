@@ -1,6 +1,7 @@
 import os
 import hashlib
 import time
+import shutil
 
 class File:
     def __init__(self, path):
@@ -8,7 +9,7 @@ class File:
         self.name = os.path.basename(path)
         self.size = os.path.getsize(path)
         self.hex_signature = self.get_hex_signature()
-        self.modified_time = time.ctime(os.path.getmtime(path))
+        self.modified_time = os.path.getmtime(path)
         self.md5_hash = self.calculate_md5()
 
     def get_hex_signature(self):
@@ -26,7 +27,7 @@ class File:
         return hash_md5.hexdigest()
 
     def __repr__(self):
-        return f"{self.name} | {self.size} octets | {self.hex_signature} | {self.md5_hash} | {self.modified_time}"
+        return f"{self.name} | {self.size} octets | {self.hex_signature} | {self.md5_hash} | {time.ctime(self.modified_time)}"
 
 def get_all_files(directory):
     '''Liste tous les fichiers d'un répertoire récursivement'''
@@ -42,88 +43,49 @@ def get_all_files(directory):
                 print(f"Erreur avec {file_path}: {e}")
     return file_list
 
-def find_duplicates(directory):
-    '''Détecte les fichiers en doublon'''
-    files = get_all_files(directory)
-    seen = {}
-    duplicates = []
-    
-    for file in files:
-        file_signature = (file.size, file.hex_signature, file.md5_hash)
-        if file_signature in seen:
-            duplicates.append((file, seen[file_signature]))
-        else:
-            seen[file_signature] = file
-    
-    return duplicates
-
-def compare_and_delete_duplicates(dir1, dir2):
-    '''Compare les fichiers de deux répertoires et supprime les doublons trouvés dans dir2'''
-    files_dir1 = get_all_files(dir1)
+def compare_and_transfer(dir1, dir2):
+    '''Compare les fichiers des deux répertoires et copie les fichiers uniques ou plus récents de rep2 vers rep1'''
+    files_dir1 = {file.name: file for file in get_all_files(dir1)}
     files_dir2 = get_all_files(dir2)
-    
-    signatures_dir1 = {(file.size, file.hex_signature, file.md5_hash): file for file in files_dir1}
-    duplicates = []
-    
+
+    files_copied = 0
     for file in files_dir2:
-        file_signature = (file.size, file.hex_signature, file.md5_hash)
-        if file_signature in signatures_dir1:
-            duplicates.append(file)
+        dest_path = os.path.join(dir1, file.name)
 
-    if duplicates:
-        print("Fichiers en double détectés dans", dir2, ":")
-        for file in duplicates:
-            print(f"Suppression de : {file.path}")
-            try:
-                os.remove(file.path)
-                print(f"Supprimé : {file.name}")
-            except Exception as e:
-                print(f"Erreur lors de la suppression de {file.name} : {e}")
-    else:
-        print("Aucun fichier en double à supprimer.")
+        # Vérifier si le fichier existe déjà dans rep1
+        if file.name in files_dir1:
+            existing_file = files_dir1[file.name]
+            # Remplacement uniquement si le fichier de rep2 est plus récent
+            if file.modified_time > existing_file.modified_time:
+                print(f"Remplacement de {existing_file.name} par une version plus récente.")
+                shutil.copy2(file.path, dest_path)
+                files_copied += 1
+        else:
+            # Fichier absent dans rep1, on le copie
+            print(f"Ajout de {file.name} dans {dir1}")
+            shutil.copy2(file.path, dest_path)
+            files_copied += 1
 
-def get_directory_size_by_type(directory):
-    '''Calcule la somme des tailles des fichiers par type'''
-    file_types = {
-        "texte": {"txt", "doc", "docx", "odt", "csv", "xls", "ppt", "odp"},
-        "images": {"jpg", "png", "bmp", "gif", "svg"},
-        "vidéo": {"mp4", "avi", "mov", "mpeg", "wmv"},
-        "audio": {"mp3", "mp2", "wav", "bwf"},
-        "autre": set()
-    }
-    sizes = {category: 0 for category in file_types}
-    
-    files = get_all_files(directory)
-    for file in files:
-        ext = file.name.split(".")[-1].lower()
-        category = next((cat for cat, exts in file_types.items() if ext in exts), "autre")
-        sizes[category] += file.size
-    
-    return sizes
+    print(f"\n{files_copied} fichiers transférés vers {dir1}.")
 
 def main():
-    choice = input("Choisissez une option: (1) Analyser un répertoire, (2) Comparer et supprimer les doublons : ")
+    choice = input("Choisissez une option: (1) Analyser un répertoire, (2) Comparer et rapatrier les fichiers : ")
     
     if choice == "1":
         directory = input("Entrez le chemin du répertoire à analyser : ")
-        duplicates = find_duplicates(directory)
-        
-        if duplicates:
-            print("Fichiers en doublon détectés :")
-            for file1, file2 in duplicates:
-                print(f"Doublon trouvé : \n  {file1} \n  {file2}\n")
+        files = get_all_files(directory)
+
+        if files:
+            print("Fichiers trouvés :")
+            for file in files:
+                print(file)
         else:
-            print("Aucun doublon trouvé.")
-        
-        sizes = get_directory_size_by_type(directory)
-        print("\nSomme des fichiers par type :")
-        for category, size in sizes.items():
-            print(f"{category}: {size} octets")
+            print("Aucun fichier trouvé.")
     
     elif choice == "2":
-        dir1 = input("Entrez le chemin du premier répertoire : ")
-        dir2 = input("Entrez le chemin du second répertoire : ")
-        compare_and_delete_duplicates(dir1, dir2)
+        dir1 = input("Entrez le chemin du répertoire principal (destination) : ")
+        dir2 = input("Entrez le chemin du second répertoire (source) : ")
+        compare_and_transfer(dir1, dir2)
 
 if __name__ == "__main__":
     main()
