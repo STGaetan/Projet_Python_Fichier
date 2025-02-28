@@ -57,8 +57,8 @@ def find_duplicates(directory):
     
     return duplicates
 
-def compare_directories(dir1, dir2):
-    '''Compare les fichiers de deux répertoires et identifie les doublons dans dir2'''
+def compare_and_delete_duplicates(dir1, dir2):
+    '''Compare les fichiers de deux répertoires et supprime les doublons trouvés dans dir2'''
     files_dir1 = get_all_files(dir1)
     files_dir2 = get_all_files(dir2)
     
@@ -68,9 +68,19 @@ def compare_directories(dir1, dir2):
     for file in files_dir2:
         file_signature = (file.size, file.hex_signature, file.md5_hash)
         if file_signature in signatures_dir1:
-            duplicates.append((file, signatures_dir1[file_signature]))
-    
-    return duplicates
+            duplicates.append(file)
+
+    if duplicates:
+        print("Fichiers en double détectés dans", dir2, ":")
+        for file in duplicates:
+            print(f"Suppression de : {file.path}")
+            try:
+                os.remove(file.path)
+                print(f"Supprimé : {file.name}")
+            except Exception as e:
+                print(f"Erreur lors de la suppression de {file.name} : {e}")
+    else:
+        print("Aucun fichier en double à supprimer.")
 
 def get_directory_size_by_type(directory):
     '''Calcule la somme des tailles des fichiers par type'''
@@ -92,7 +102,7 @@ def get_directory_size_by_type(directory):
     return sizes
 
 def main():
-    choice = input("Choisissez une option: (1) Analyser un répertoire, (2) Comparer deux répertoires : ")
+    choice = input("Choisissez une option: (1) Analyser un répertoire, (2) Comparer et supprimer les doublons : ")
     
     if choice == "1":
         directory = input("Entrez le chemin du répertoire à analyser : ")
@@ -113,14 +123,7 @@ def main():
     elif choice == "2":
         dir1 = input("Entrez le chemin du premier répertoire : ")
         dir2 = input("Entrez le chemin du second répertoire : ")
-        duplicates = compare_directories(dir1, dir2)
-        
-        if duplicates:
-            print("Fichiers en doublon trouvés dans le second répertoire :")
-            for file2, file1 in duplicates:
-                print(f"Doublon dans {dir2}: {file2} \n  Correspondant dans {dir1}: {file1}\n")
-        else:
-            print("Aucun doublon trouvé entre les deux répertoires.")
+        compare_and_delete_duplicates(dir1, dir2)
 
 if __name__ == "__main__":
     main()
