@@ -68,8 +68,34 @@ def compare_and_transfer(dir1, dir2):
 
     print(f"\n{files_copied} fichiers transférés vers {dir1}.")
 
+def remove_duplicates(directory):
+    '''Supprime les fichiers en double en comparant nom, taille, signature hexadécimale et hash MD5'''
+    files = get_all_files(directory)
+    seen_files = {}
+    duplicates_removed = 0
+
+    for file in files:
+        file_key = (file.name, file.size, file.hex_signature, file.md5_hash)
+
+        if file_key in seen_files:
+            try:
+                print(f"🗑️ Suppression du doublon : {file.name} ({file.path})")
+                os.remove(file.path)
+                duplicates_removed += 1
+
+            except PermissionError:
+                print(f"⛔ Permission refusée : Impossible de supprimer {file.path}")
+            except Exception as e:
+                print(f"❌ Erreur lors de la suppression de {file.path} : {e}")
+        else:
+            seen_files[file_key] = file.path
+
+    print(f"\n✅ {duplicates_removed} fichiers en double supprimés.")
+
+
 def main():
-    choice = input("Choisissez une option: (1) Analyser un répertoire, (2) Comparer et rapatrier les fichiers : ")
+    choice = input("Choisissez une option: (1) Analyser un répertoire, (2) Comparer et rapatrier les fichiers, (3) Supprimer les doublons : ")
+
     
     if choice == "1":
         directory = input("Entrez le chemin du répertoire à analyser : ")
@@ -85,7 +111,13 @@ def main():
     elif choice == "2":
         dir1 = input("Entrez le chemin du répertoire principal (destination) : ")
         dir2 = input("Entrez le chemin du second répertoire (source) : ")
+        
         compare_and_transfer(dir1, dir2)
+
+    elif choice == "3":
+        directory = input("Entrez le chemin du répertoire où supprimer les doublons : ")
+        remove_duplicates(directory)
+
 
 if __name__ == "__main__":
     main()
